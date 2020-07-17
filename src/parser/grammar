@@ -1,0 +1,101 @@
+
+a[i] a() a.f	Index, call, field access	left to right
+!a -a	Unary negation	right to left
+a/b a%b a*b	Multiplicative operators	left to right
+a+b a-b	Additive operators	left to right
+a>b a>=b a<b a<=b	Relational operators	left to right
+a in b, a is b	Existence in list or map, type comparison	left to right
+a==b a!=b	Comparison operators	left to right
+a && b	Conditional AND	left to right
+a || b	Conditional OR	left to right
+a ? true_value : false_value	Ternary expression	left to right
+
+
+rules ::= "rules_version" = '2' ;
+        |
+
+body ::= "service" "cloud" . "firestore" { body-piece ... }
+
+body-piece ::= function | match
+
+function ::= "function" "(" identifier ... ")" "{" let-stmt... return-stmt "}"
+
+let-stmt ::= "let" identifier "=" expr ";"
+
+return-stmt ::= "return" expr ";"
+
+match ::= "match" path "{" function ... allow ... "}"
+
+allow ::= "allow" action "," ... ":" "if" expr ";"
+
+action ::= read | write | get | list | create | update | delete
+
+expr ::=
+    | ternary-expr
+    | or-expr
+    ;
+
+ternary-expr ::=
+    | ternary-expr "?" ternary-expr ":" ternary-expr
+    ;
+
+or-expr ::=
+    | or-expr "||" and-expr
+    | and-expr
+    ;
+
+and-expr ::=
+    | and-expr "&&" eq-expr
+    | eq-expr
+    ;
+
+eq-expr ::=
+    | eq-expr "==" in-expr
+    | eq-expr "!=" in-expr
+    | in-exp
+    ;
+
+in-expr ::=
+    | in-expr "in" relational-expr
+    | in-expr "is" relational-expr
+    | relation-expr
+    ;
+
+relational-expr ::=
+    | relational-expr "<" additive-expr
+    | relational-expr "<=" additive-expr
+    | relational-expr ">" additive-expr
+    | relational-expr ">=" additive-expr
+    | additive-expr
+    ;
+
+additive-expr ::=
+    | additive-expr "+" multiplicative-expr
+    | additive-expr "-" multiplicative-expr
+    | multiplicative-expr
+    ;
+
+multiplicative-expr ::=
+    | multiplicative-expr "*" unary-expr
+    | multiplicative-expr "/" unary-expr
+    | multiplicative-expr "%" unary-expr
+    | unary-expr
+    ;
+
+unary-expr ::=
+    | "!" unary-expr
+    | "-" unary-expr
+    | term
+    ;
+
+term ::=
+    | term "[" expr "]"
+    | term "(" expr "," ... ")"
+    | term "." identifier
+    | identifier
+    | literal
+    | "(" expr ")"
+    ;
+
+
+

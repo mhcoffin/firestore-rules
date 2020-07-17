@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+        function owner() {
+            return request.auth.uid == uid;
+        }
+
+        function valid() {
+            return request.resource.data.keys().hasOnly(['preferences', 'projects']);
+        }
+
+        function tooManyProjects() {
+            return request.resource.data.projects.size() > 100;
+        }
+
+        allow read: if owner();
+        allow write: if owner() && valid() && !tooManyProjects();
+
+        match /projects/{projectId} {
+            function hasOnlyCorrectKeys() {
+              return request.resource.data.keys().hasOnly([
+                  'owner',
+                  'metadata',
+                  'assignments',
+                  'axes',
+                  'axisFilters',
+                  'public',
+                  'name',
+                  'palette',
+                  'projectId',
+                  'soundFilter',
+                  'created',
+                  'modified'
+               ]);
+            }
+
+            function validProject() {
+                return request.resource.id == request.resource.data.projectId
+                    && hasOnlyCorrectKeys();
+            }
+
+            function createdDoesNotChange() {
+                return resource.data.created == request.resource.data.created;
+            }
+
+            allow read, delete: if owner();
+            allow create: if owner() && validProject();
+            allow update: if owner() && validProject() && createdDoesNotChange();
+        }
+    }
+
+    match /issues/{id} {
+        function hasCorrectKeys() {
+            let correctKeys = [
+                  'id',
+                  'title',
+                  'description',
+                  'created',
+                  'modified',
+                  'creator',
+                  'kind',
+                  'reason',
+                  'state',
+                  'votes'
+            ].toSet();
+            return request.resource.data.keys().toSet() == correctKeys;
+        }
+
+        function uidIsCorrect() {
+            return request.auth.uid == request.resource.data.creator;
+        }
+
+        function titleIsValid() {
+            let title = request.resource.data.title;
+            return title is string && title.size() > 10 && title.size() < 100;
+        }
+
+        function descriptionIsValid() {
+            let description = request.resource.data.description;
+            return description is string && description.size() < 2000;
+        }
+
+        function reasonIsValid() {
+            let reason = request.resource.data.reason;
+            return reason in ['triage', 'pending', 'backlog', 'fixed', 'duplicate', 'infeasible', 'intended' ];
+        }
+
+        function timesSimilar(tm1, tm2) {
+            return math.abs(debug(tm1.seconds()) - debug(tm2.seconds())) < 5;
+        }
+
+        function stateIsValid() {
+            return request.resource.data.state in ['open', 'closed'];
+        }
+
+        function dataIsValid() {
+            return hasCorrectKeys()
+                && titleIsValid()
+                && descriptionIsValid()
+                && reasonIsValid()
+                && stateIsValid();
+        }
+
+        allow create: if request.auth.uid != null
+            && timesSimilar(request.time, request.resource.data.created)
+            && request.resource.data.created == request.resource.data.modified
+            && uidIsCorrect()
+            && dataIsValid();
+
+        allow read: if request.auth.uid != null;
+
+        allow update: if request.auth.uid == request.resource.data.creator
+            && resource.data.created == request.resource.data.created
+            && timesSimilar(request.time, request.resource.data.modified)
+            && hasCorrectKeys()
+            && titleIsValid()
+            && descriptionIsValid();
+    }
+  }
+}
